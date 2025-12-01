@@ -1,12 +1,18 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import type { Position, Cell, MazeConfig } from "@/types/maze";
+import {
+  type Position,
+  type Cell,
+  type MazeConfig,
+  type Direction,
+} from "@/types/maze";
 import { setupMaze } from "../utils/maze";
-import clickSound from '@/assets/click.ogg';
-import winSound from '@/assets/win.ogg';
+import clickSound from "@/assets/click.ogg";
+import winSound from "@/assets/win.ogg";
 
 export const useMaze = (mazeConfig: MazeConfig) => {
   const [maze, setMaze] = useState(() => setupMaze(mazeConfig));
   const [playerPos, setPlayerPos] = useState<Position>(mazeConfig.START_POS);
+  const [playerDirection, setPlayerDirection] = useState<Direction>("bottom");
   const [path, setPath] = useState<Position[]>([]);
   const [isSolving, setIsSolving] = useState(false);
   const [isShowingPath, setIsShowingPath] = useState(false);
@@ -65,22 +71,22 @@ export const useMaze = (mazeConfig: MazeConfig) => {
       const { row, col } = currentPos;
       const currentCell = maze[row][col];
 
-      if (abortRef.current) {
-        setIsSolving(false);
-        setPath([]);
-        return;
-      }
-
       // update the state to where we are right now=
       setPlayerPos({ row, col });
 
       // check if we are on the uh, target so that we break out the loop.
       if (currentCell.isTarget) {
-        (new Audio(winSound)).play();
+        new Audio(winSound).play();
         break;
       }
 
       await sleep(50);
+
+      if (abortRef.current) {
+        setIsSolving(false);
+        setPath([]);
+        return;
+      }
 
       const potentialMoves = [];
 
@@ -115,14 +121,25 @@ export const useMaze = (mazeConfig: MazeConfig) => {
 
       if (potentialMoves.length > 0) {
         const nextMove = potentialMoves[0];
-
         visited.add(`${nextMove.row},${nextMove.col}`);
         stack.push(nextMove);
       } else {
         stack.pop();
       }
 
-      (new Audio(clickSound)).play();
+      const newestMove = stack[stack.length - 1];
+
+      if (newestMove.row < currentPos.row) {
+        setPlayerDirection("top");
+      } else if (newestMove.row > currentPos.row) {
+        setPlayerDirection("bottom");
+      } else if (newestMove.col > currentPos.col) {
+        setPlayerDirection("right");
+      } else if (newestMove.col < currentPos.col) {
+        setPlayerDirection("left");
+      }
+
+      new Audio(clickSound).play();
       setPath([...stack]);
     }
 
@@ -136,20 +153,25 @@ export const useMaze = (mazeConfig: MazeConfig) => {
   };
 
   const handleResetMaze = () => {
+    debugger
     abortRef.current = true;
     setIsSolving(false);
     setPath([]);
 
     const newMaze = setupMaze(mazeConfig);
+    const newDirection = getDirectionWithWalls(newMaze[0][0]) || 'bottom'
     setMaze(newMaze);
     setPlayerPos({ col: 0, row: 0 });
+    setPlayerDirection(newDirection);
   };
 
   const handleStopMaze = () => {
+    debugger;
     abortRef.current = true;
     setIsSolving(false);
     setPath([]);
     setPlayerPos({ col: 0, row: 0 });
+    setPlayerDirection(getDirectionWithWalls(maze[0][0]) || 'bottom');
   };
 
   const showPath = async (path: Position[]) => {
@@ -164,7 +186,9 @@ export const useMaze = (mazeConfig: MazeConfig) => {
 
   useEffect(() => {
     handleStopMaze();
-    setMaze(setupMaze(mazeConfig));
+    const newMaze = setupMaze(mazeConfig);
+    setMaze(newMaze); 
+    setPlayerDirection(getDirectionWithWalls(newMaze[0][0]) || 'bottom');
   }, [mazeConfig]);
 
   return {
@@ -187,5 +211,20 @@ export const useMaze = (mazeConfig: MazeConfig) => {
     handleResetMaze,
     handleStopMaze,
     showPath,
+    playerDirection,
   };
 };
+
+function getDirectionWithWalls(cell: Cell): (Direction | null) {
+  if (!cell.walls.right) {
+    return 'right';
+  } else if (!cell.walls.left) {
+    return 'left';
+  } else if (!cell.walls.top) {
+    return 'top';
+  } else if (!cell.walls.bottom) {
+    return 'bottom';
+  } else {
+    return null;
+  }
+}

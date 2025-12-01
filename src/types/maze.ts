@@ -21,3 +21,4 @@ export interface MazeConfig {
   START_POS: Position;
 }
 
+export type Direction = 'top' | 'right' | 'bottom' | 'left';

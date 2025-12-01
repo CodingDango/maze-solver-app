@@ -35,6 +35,7 @@ function App() {
     solveMaze,
     handleResetMaze,
     handleStopMaze,
+    playerDirection,
   } = useMaze(mazeConfig);
 
   const handleChangePresets = (preset: string) => {
@@ -117,6 +118,7 @@ function App() {
                 isInPath={isCellInPath}
                 isShowingPath={isShowingPath}
                 isSolving={isSolving}
+                playerDirection={playerDirection}
               />
             );
           })}
